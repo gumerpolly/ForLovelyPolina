@@ -332,21 +332,183 @@ class MorphologicalAnalyzer:
         Returns:
             Словарь с морфологическими характеристиками наиболее вероятного варианта
         """
-        # Заглушка: подготовленные ответы для конкретных случаев
-        if word.lower() == 'стекло' and context and 'разбилось' in context:
+        word_lower = word.lower()
+        
+        # Словарь омонимов с их возможными разборами и контекстными маркерами
+        homonyms = {
+            'стекло': [
+                {
+                    'lemma': 'стекло',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['разбилось', 'окно', 'прозрачное', 'матовое', 'треснуло']
+                },
+                {
+                    'lemma': 'стечь',
+                    'pos': 'VERB',
+                    'tags': {'gender': 'neut', 'number': 'sing', 'tense': 'past'},
+                    'markers': ['вниз', 'по', 'медленно', 'стене', 'капля']
+                }
+            ],
+            'печь': [
+                {
+                    'lemma': 'печь',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['горячая', 'русская', 'топить', 'дрова', 'огонь', 'духовка']
+                },
+                {
+                    'lemma': 'печь',
+                    'pos': 'VERB',
+                    'tags': {'tense': 'pres', 'person': '3per'},
+                    'markers': ['пироги', 'хлеб', 'булочки', 'торт', 'кулинар']
+                }
+            ],
+            'три': [
+                {
+                    'lemma': 'три',
+                    'pos': 'NUMR',
+                    'tags': {'case': 'nomn'},
+                    'markers': ['четыре', 'два', 'пять', 'число', 'количество']
+                },
+                {
+                    'lemma': 'тереть',
+                    'pos': 'VERB',
+                    'tags': {'mood': 'impr', 'number': 'sing', 'person': '2per'},
+                    'markers': ['морковь', 'сыр', 'на', 'тёрке']
+                }
+            ],
+            'ключи': [
+                {
+                    'lemma': 'ключ',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'plur', 'case': 'nomn'},
+                    'markers': ['дверь', 'замок', 'открыть', 'связка', 'карман']
+                },
+                {
+                    'lemma': 'ключ',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'plur', 'case': 'nomn'},
+                    'markers': ['родник', 'вода', 'бить', 'горный', 'чистый', 'лес']
+                }
+            ],
+            'лук': [
+                {
+                    'lemma': 'лук',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['овощ', 'резать', 'порей', 'грядка', 'слезы', 'чеснок']
+                },
+                {
+                    'lemma': 'лук',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['стрела', 'стрелять', 'тетива', 'попасть', 'мишень', 'охота']
+                }
+            ],
+            'ласка': [
+                {
+                    'lemma': 'ласка',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['нежность', 'любовь', 'доброта', 'приятно', 'забота']
+                },
+                {
+                    'lemma': 'ласка',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['животное', 'хищник', 'грызун', 'мелкий', 'пушистый']
+                }
+            ],
+            'стали': [
+                {
+                    'lemma': 'сталь',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'gent'},
+                    'markers': ['металл', 'завод', 'производство', 'прочный', 'сплав']
+                },
+                {
+                    'lemma': 'стать',
+                    'pos': 'VERB',
+                    'tags': {'tense': 'past', 'number': 'plur'},
+                    'markers': ['они', 'мы', 'вы', 'начали', 'решили', 'больше', 'лучше']
+                }
+            ],
+            'мир': [
+                {
+                    'lemma': 'мир',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['планета', 'земля', 'вселенная', 'вокруг', 'глобус']
+                },
+                {
+                    'lemma': 'мир',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['война', 'согласие', 'договор', 'спокойствие', 'дружба']
+                }
+            ],
+            'вести': [
+                {
+                    'lemma': 'весть',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'plur', 'case': 'nomn'},
+                    'markers': ['новости', 'плохие', 'хорошие', 'получить', 'услышать']
+                },
+                {
+                    'lemma': 'вести',
+                    'pos': 'VERB',
+                    'tags': {'tense': 'pres', 'number': 'sing', 'person': '3per'},
+                    'markers': ['дорога', 'за', 'собой', 'процесс', 'переговоры', 'машину']
+                }
+            ],
+            'коса': [
+                {
+                    'lemma': 'коса',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['волосы', 'плести', 'длинная', 'девушка', 'прическа']
+                },
+                {
+                    'lemma': 'коса',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['трава', 'сено', 'косить', 'луг', 'поле', 'инструмент']
+                },
+                {
+                    'lemma': 'коса',
+                    'pos': 'NOUN',
+                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
+                    'markers': ['берег', 'море', 'песок', 'узкая', 'полуостров']
+                }
+            ]
+        }
+        
+        # Если слово есть в нашем словаре омонимов
+        if word_lower in homonyms and context:
+            context_lower = [w.lower() for w in context]
+            
+            # Для каждого возможного разбора проверяем совпадение с контекстом
+            for parse in homonyms[word_lower]:
+                # Проверяем наличие маркеров в контексте
+                for marker in parse['markers']:
+                    if marker in context_lower:
+                        # Нашли соответствующий контекст, возвращаем этот разбор
+                        return {
+                            'word': word,
+                            'lemma': parse['lemma'],
+                            'pos': parse['pos'],
+                            'tags': parse['tags'],
+                            'all_parses': []  # Можно добавить все возможные разборы при необходимости
+                        }
+            
+            # Если совпадений нет, берем первый вариант (наиболее частотный)
+            default_parse = homonyms[word_lower][0]
             return {
-                'word': 'стекло',
-                'normal_form': 'стекло',
-                'pos': 'NOUN',
-                'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'},
-                'all_parses': []
-            }
-        elif word.lower() == 'стекло' and context and ('вниз' in context or 'по' in context):
-            return {
-                'word': 'стекло',
-                'normal_form': 'стечь',
-                'pos': 'VERB',
-                'tags': {'gender': 'neut', 'number': 'sing', 'tense': 'past'},
+                'word': word,
+                'lemma': default_parse['lemma'],
+                'pos': default_parse['pos'],
+                'tags': default_parse['tags'],
                 'all_parses': []
             }
         
@@ -363,5 +525,27 @@ class MorphologicalAnalyzer:
         Returns:
             Список словарей с морфологическими характеристиками слов
         """
-        words = re.findall(r'[а-яёА-ЯЁ]+', text)
-        return [self.analyze_word(word) for word in words]
+        # Разбиваем текст на предложения
+        sentences = re.split(r'[.!?]+', text)
+        result = []
+        
+        # Обрабатываем каждое предложение
+        for sentence in sentences:
+            # Извлекаем слова из предложения
+            words = re.findall(r'[а-яёА-ЯЁ]+', sentence.lower())
+            
+            if not words:
+                continue
+                
+            # Анализируем каждое слово с учетом контекста предложения
+            for i, word in enumerate(words):
+                # Используем контекст предложения для снятия омонимии
+                # (передаем все слова предложения в качестве контекста)
+                analysis = self.resolve_homonymy(word, words)
+                
+                # Добавляем позицию слова в предложении
+                analysis['position'] = i
+                analysis['sentence'] = sentence.strip()
+                
+                result.append(analysis)
+        return result
