@@ -15,6 +15,8 @@ import os
 import numpy as np
 from collections import Counter
 import pandas as pd
+import json
+from pyvis.network import Network
 
 from .trie import PrefixTree, TrieNode
 
@@ -46,8 +48,13 @@ def visualize_trie(trie: PrefixTree, max_depth: int = 5,
     # Создаем фигуру и оси
     fig, ax = plt.subplots(figsize=(12, 8))
     
-    # Определяем позиции узлов с помощью алгоритма компоновки дерева
-    pos = nx.drawing.nx_agraph.graphviz_layout(G, prog="dot")
+    # Определяем позиции узлов с помощью стандартного алгоритма компоновки дерева
+    try:
+        # Пробуем использовать graphviz, если доступен
+        pos = nx.drawing.nx_agraph.graphviz_layout(G, prog="dot")
+    except (ImportError, ModuleNotFoundError):
+        # Если graphviz недоступен, используем альтернативный алгоритм
+        pos = nx.spring_layout(G, k=0.5, iterations=50)
     
     # Получаем метки и счетчики для узлов
     labels = {}
@@ -259,6 +266,164 @@ def visualize_syllable_statistics(syllable_stats: Dict[str, Any],
         plt.savefig(output_path, bbox_inches='tight', dpi=150)
     
     return fig
+
+
+def visualize_trie_interactive(trie: PrefixTree, max_depth: int = 5,
+                          output_path: Optional[str] = None,
+                          title: str = "Интерактивное префиксное дерево",
+                          notebook: bool = False) -> None:
+    """
+    Создает интерактивную визуализацию префиксного дерева в формате HTML.
+    
+    Args:
+        trie: Префиксное дерево для визуализации
+        max_depth: Максимальная глубина отображаемого дерева
+        output_path: Путь для сохранения HTML-файла (если None, используется 'trie_interactive.html')
+        title: Заголовок графа
+        notebook: Интеграция с Jupyter Notebook
+        
+    Returns:
+        None (сохраняет HTML-файл или отображает в notebook)
+    """
+    # Создаем объект Network
+    net = Network(height="800px", width="100%", directed=True, notebook=notebook)
+    net.toggle_physics(True)
+    net.set_options("""
+    var options = {
+      "nodes": {
+        "font": {
+          "size": 14,
+          "face": "Tahoma"
+        },
+        "borderWidth": 2,
+        "shadow": true
+      },
+      "edges": {
+        "arrows": {
+          "to": {
+            "enabled": true,
+            "scaleFactor": 0.5
+          }
+        },
+        "smooth": {
+          "enabled": true
+        }
+      },
+      "physics": {
+        "forceAtlas2Based": {
+          "gravitationalConstant": -26,
+          "centralGravity": 0.005,
+          "springLength": 230,
+          "springConstant": 0.18
+        },
+        "maxVelocity": 146,
+        "solver": "forceAtlas2Based",
+        "timestep": 0.35,
+        "stabilization": {"iterations": 150}
+      }
+    }
+    """)
+    
+    # Добавляем корневой узел
+    root_id = "ROOT"
+    net.add_node(root_id, label="ROOT", title="ROOT", 
+                shape="dot", size=25, color="#00BFFF")
+    
+    # Рекурсивно добавляем узлы и ребра
+    _add_nodes_and_edges_interactive(net, root_id, trie.root, 1, max_depth)
+    
+    # Сохраняем HTML-файл
+    if output_path is None:
+        output_path = 'trie_interactive.html'
+    
+    # Добавляем заголовок и инструкции для взаимодействия
+    notes = """
+    <h3>{0}</h3>
+    <p>Инструкции для взаимодействия:</p>
+    <ul>
+        <li>Используйте колесо мыши для масштабирования</li>
+        <li>Перетаскивайте узлы для лучшего размещения</li>
+        <li>Наведите курсор на узел, чтобы увидеть дополнительную информацию</li>
+        <li>Дважды щелкните, чтобы зафиксировать узел</li>
+    </ul>
+    """.format(title)
+    
+    try:
+        # Сохраняем сетевую визуализацию как HTML
+        net.save_graph(output_path)
+        
+        # Добавляем заголовок и инструкции в HTML-файл
+        with open(output_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Вставляем наши заметки после тега body
+        modified_html = html_content.replace('<body>', f'<body>\n{notes}')
+        
+        # Записываем обновленный HTML
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(modified_html)
+        
+        print(f"Интерактивная визуализация сохранена в {output_path}")
+    except Exception as e:
+        print(f"Ошибка при сохранении визуализации: {e}")
+
+
+def _add_nodes_and_edges_interactive(net: Network, parent_id: str, node: TrieNode,
+                                  current_depth: int, max_depth: int) -> None:
+    """
+    Рекурсивно добавляет узлы и ребра в объект Network.
+    
+    Args:
+        net: Объект Network из pyvis
+        parent_id: Идентификатор родительского узла
+        node: Текущий узел Trie
+        current_depth: Текущая глубина в дереве
+        max_depth: Максимальная глубина для визуализации
+    """
+    # Если превышена максимальная глубина, останавливаемся
+    if current_depth > max_depth:
+        return
+    
+    # Добавляем дочерние узлы и ребра
+    for syllable, child_node in node.children.items():
+        # Создаем уникальный идентификатор для узла
+        node_id = f"{parent_id}_{syllable}_{current_depth}_{id(child_node)}"
+        
+        # Определение цвета и размера на основе свойств узла
+        node_color = "#1E90FF" # Обычный узел
+        node_size = 20 + child_node.count * 3
+        node_shape = "dot"
+        
+        if child_node.is_end_of_word:
+            node_color = "#32CD32" # Зеленый для конечных узлов слова
+            node_shape = "diamond"
+        
+        # Формируем подсказку при наведении
+        tooltip = f"Слог: {syllable}<br>Встречается: {child_node.count} раз"
+        if child_node.is_end_of_word:
+            tooltip += f"<br>Конец слова: Да"
+            if hasattr(child_node, 'word_data') and child_node.word_data:
+                word_data = child_node.word_data
+                if isinstance(word_data, dict):
+                    for key, value in word_data.items():
+                        # Ограничиваем длину информации для удобства отображения
+                        if isinstance(value, str) and len(value) > 30:
+                            tooltip += f"<br>{key}: {value[:30]}..."
+                        else:
+                            tooltip += f"<br>{key}: {value}"
+        
+        # Добавляем узел
+        net.add_node(node_id, label=syllable, title=tooltip,
+                    shape=node_shape, size=node_size, color=node_color)
+        
+        # Добавляем ребро от родителя к текущему узлу
+        edge_label = str(child_node.count) if child_node.count > 1 else ""
+        edge_width = 1 + 0.5 * child_node.count  # Толщина ребра зависит от количества
+        net.add_edge(parent_id, node_id, title=f"Встречается: {child_node.count} раз", 
+                    width=edge_width, label=edge_label)
+        
+        # Рекурсивно обрабатываем дочерние узлы
+        _add_nodes_and_edges_interactive(net, node_id, child_node, current_depth + 1, max_depth)
 
 
 def visualize_trie_statistics(trie_stats: Dict[str, Any], 

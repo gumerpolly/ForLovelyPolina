@@ -22,7 +22,8 @@ from morpho_analyzer.syllables import split_into_syllables, get_syllabification_
 from morpho_analyzer.trie import PrefixTree
 from morpho_analyzer.visualization import (visualize_trie, visualize_parts_of_speech,
                                          visualize_syllable_statistics,
-                                         visualize_trie_statistics, create_summary_report)
+                                         visualize_trie_statistics, create_summary_report,
+                                         visualize_trie_interactive)
 
 
 def parse_arguments():
@@ -146,6 +147,12 @@ def main():
     visualize_syllable_statistics(syllable_stats,
                                 output_path=syllable_image_path,
                                 title="Статистика слогов")
+    
+    # Интерактивная HTML-визуализация префиксного дерева
+    trie_html_path = os.path.join(args.output_dir, "trie_interactive.html")
+    visualize_trie_interactive(trie, max_depth=args.trie_depth,
+                             output_path=trie_html_path,
+                             title="Интерактивное префиксное дерево слогов")
     
     # Визуализация статистики префиксного дерева
     trie_stats_image_path = os.path.join(args.output_dir, "trie_statistics.png")
