@@ -54,11 +54,47 @@ class MorphologicalAnalyzer:
                 'pos': 'NOUN',
                 'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'}
             },
+            'книги': {
+                'word': 'книги',
+                'lemma': 'книга',
+                'pos': 'NOUN',
+                'tags': {'gender': 'femn', 'number': 'plur', 'case': 'gent'}
+            },
+            'книге': {
+                'word': 'книге',
+                'lemma': 'книга',
+                'pos': 'NOUN',
+                'tags': {'gender': 'femn', 'number': 'sing', 'case': 'datv'}
+            },
             'читает': {
                 'word': 'читает',
                 'lemma': 'читать',
                 'pos': 'VERB',
                 'tags': {'tense': 'pres', 'person': '3per', 'number': 'sing'}
+            },
+            'читают': {
+                'word': 'читают',
+                'lemma': 'читать',
+                'pos': 'VERB',
+                'tags': {'tense': 'pres', 'person': '3per', 'number': 'plur'}
+            },
+            'читал': {
+                'word': 'читал',
+                'lemma': 'читать',
+                'pos': 'VERB',
+                'tags': {'tense': 'past', 'gender': 'masc', 'number': 'sing'}
+            },
+            'читала': {
+                'word': 'читала',
+                'lemma': 'читать',
+                'pos': 'VERB',
+                'tags': {'tense': 'past', 'gender': 'femn', 'number': 'sing'}
+            },
+            'читали': {
+                'word': 'читали',
+                'lemma': 'читать',
+                'pos': 'VERB',
+                'tags': {'tense': 'past', 'number': 'plur'}
             },
             'читать': {
                 'word': 'читать',
@@ -77,6 +113,54 @@ class MorphologicalAnalyzer:
                 'lemma': 'красивый',
                 'pos': 'ADJF',
                 'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'}
+            },
+            'красивая': {
+                'word': 'красивая',
+                'lemma': 'красивый',
+                'pos': 'ADJF',
+                'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'}
+            },
+            'красивое': {
+                'word': 'красивое',
+                'lemma': 'красивый',
+                'pos': 'ADJF',
+                'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'}
+            },
+            'красивые': {
+                'word': 'красивые',
+                'lemma': 'красивый',
+                'pos': 'ADJF',
+                'tags': {'number': 'plur', 'case': 'nomn'}
+            },
+            'быстро': {
+                'word': 'быстро',
+                'lemma': 'быстро',
+                'pos': 'ADVB',
+                'tags': {}
+            },
+            'я': {
+                'word': 'я',
+                'lemma': 'я',
+                'pos': 'NPRO',
+                'tags': {'person': '1per', 'number': 'sing', 'case': 'nomn'}
+            },
+            'мы': {
+                'word': 'мы',
+                'lemma': 'мы',
+                'pos': 'NPRO',
+                'tags': {'person': '1per', 'number': 'plur', 'case': 'nomn'}
+            },
+            'и': {
+                'word': 'и',
+                'lemma': 'и',
+                'pos': 'CONJ',
+                'tags': {}
+            },
+            'в': {
+                'word': 'в',
+                'lemma': 'в',
+                'pos': 'PREP',
+                'tags': {}
             }
         }
         
@@ -84,13 +168,57 @@ class MorphologicalAnalyzer:
         if clean_word in predefined_results:
             return predefined_results[clean_word]
         
-        # Иначе возвращаем стандартный результат
+        # Иначе генерируем псевдослучайный результат на основе первой буквы слова
+        first_char = clean_word[0] if clean_word else 'а'
+        char_code = ord(first_char) % 10
+        
+        # Список возможных частей речи
+        pos_variants = ['NOUN', 'VERB', 'ADJF', 'ADVB', 'NPRO', 'CONJ', 'PREP']
+        # Список возможных родов
+        genders = ['masc', 'femn', 'neut']
+        # Список возможных чисел
+        numbers = ['sing', 'plur']
+        # Список возможных падежей
+        cases = ['nomn', 'gent', 'datv', 'accs', 'ablt', 'loct']
+        
+        # Выбираем часть речи на основе первой буквы
+        pos = pos_variants[char_code % len(pos_variants)]
+        
+        # Готовим базовый результат
         result = {
             'word': word,
             'lemma': clean_word,
-            'pos': 'NOUN',  # По умолчанию считаем существительным
-            'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'}
+            'pos': pos,
+            'tags': {}
         }
+        
+        # Заполняем теги в зависимости от части речи
+        if pos == 'NOUN':
+            result['tags'] = {
+                'gender': genders[char_code % len(genders)],
+                'number': numbers[char_code % 2],
+                'case': cases[char_code % len(cases)]
+            }
+        elif pos == 'ADJF':
+            result['tags'] = {
+                'gender': genders[char_code % len(genders)],
+                'number': numbers[char_code % 2],
+                'case': cases[char_code % len(cases)]
+            }
+        elif pos == 'VERB':
+            # Для глаголов выбираем между прошедшим и настоящим временем
+            if char_code % 2 == 0:
+                result['tags'] = {
+                    'tense': 'pres',
+                    'person': '3per',
+                    'number': numbers[char_code % 2]
+                }
+            else:
+                result['tags'] = {
+                    'tense': 'past',
+                    'gender': genders[char_code % len(genders)],
+                    'number': numbers[char_code % 2]
+                }
         
         return result
     

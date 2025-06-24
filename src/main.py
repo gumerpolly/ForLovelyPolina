@@ -23,7 +23,7 @@ from morpho_analyzer.trie import PrefixTree
 from morpho_analyzer.visualization import (visualize_trie, visualize_parts_of_speech,
                                          visualize_syllable_statistics,
                                          visualize_trie_statistics, create_summary_report,
-                                         visualize_trie_interactive)
+                                         visualize_trie_interactive, export_to_excel)
 
 
 def parse_arguments():
@@ -159,13 +159,20 @@ def main():
     visualize_trie_statistics(trie.get_statistics(),
                             output_path=trie_stats_image_path,
                             title="Статистика префиксного дерева")
+                            
+    # Экспорт результатов в Excel с русифицированными свойствами
+    excel_path = os.path.join(args.output_dir, "morphological_analysis.xlsx")
+    export_to_excel(analyzed_text, 
+                  output_path=excel_path, 
+                  sheet_name="Морфологический анализ")
     
     # Создание отчета
     report_path = os.path.join(args.output_dir, "analysis_report.md")
     create_summary_report(analyzed_text, trie, syllable_stats, output_path=report_path)
     
-    # Сохранение результатов в JSON
-    json_output_path = os.path.join(args.output_dir, "analysis_results.json")
+    # Шаг 7: Экспорт и сохранение результатов 
+    print("Сохранение результатов...")
+    results_json_path = os.path.join(args.output_dir, "analysis_results.json")
     
     # Подготовка данных для сериализации
     output_data = {
@@ -175,7 +182,7 @@ def main():
     }
     
     # Сохранение в JSON
-    with open(json_output_path, 'w', encoding='utf-8') as f:
+    with open(results_json_path, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, ensure_ascii=False, indent=2)
     
     # Вывод информации о завершении
@@ -183,7 +190,8 @@ def main():
     print(f"Анализ завершен за {elapsed_time:.2f} секунд")
     print(f"Результаты сохранены в директории: {args.output_dir}")
     print(f"Отчет в формате Markdown: {report_path}")
-    print(f"JSON с результатами анализа: {json_output_path}")
+    print(f"JSON с результатами анализа: {results_json_path}")
+    print(f"Excel с русифицированным анализом: {excel_path}")
 
 
 if __name__ == "__main__":

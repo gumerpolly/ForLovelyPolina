@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  morpho-analyzer:
+    build: .
+    volumes:
+      # Монтируем локальную директорию data для ввода/вывода файлов
+      - ./data:/app/data
+    # Указываем команду, которая будет перезаписываться при запуске
+    # Например: docker-compose run morpho-analyzer --input data/input/file.txt --output-dir data/output
+    command: ["--input", "data/input/Исходный текст 1.txt", "--output-dir", "data/output"]

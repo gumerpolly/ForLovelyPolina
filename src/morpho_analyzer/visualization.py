@@ -487,10 +487,174 @@ def visualize_trie_statistics(trie_stats: Dict[str, Any],
     return fig
 
 
+def export_to_excel(analyzed_text: List[Dict[str, Any]], 
+                   output_path: str = 'morphological_analysis.xlsx',
+                   sheet_name: str = 'Морфологический анализ') -> None:
+    """
+    Экспортирует результаты морфологического анализа в Excel-файл с русифицированными свойствами.
+    
+    Args:
+        analyzed_text: Список результатов морфологического анализа
+        output_path: Путь для сохранения Excel-файла
+        sheet_name: Имя листа в Excel-файле
+        
+    Returns:
+        None (сохраняет Excel-файл по указанному пути)
+    """
+    # Словарь соответствия английских морфологических терминов русским
+    morpho_translation = {
+        # Части речи
+        'NOUN': 'Существительное',
+        'VERB': 'Глагол',
+        'INFN': 'Инфинитив',
+        'ADJF': 'Прилагательное (полное)',
+        'ADJS': 'Прилагательное (краткое)',
+        'ADVB': 'Наречие',
+        'COMP': 'Компаратив',
+        'PRTF': 'Причастие (полное)',
+        'PRTS': 'Причастие (краткое)',
+        'GRND': 'Деепричастие',
+        'NUMR': 'Числительное',
+        'CONJ': 'Союз',
+        'PREP': 'Предлог',
+        'PRCL': 'Частица',
+        'INTJ': 'Междометие',
+        'PNCT': 'Пунктуация',
+        'UNKN': 'Неизвестно',
+        'PRED': 'Предикатив',
+        'NPRO': 'Местоимение-существительное',
+        'ADJS': 'Прилагательное (краткое)',
+        
+        # Падежи
+        'nomn': 'Именительный',
+        'gent': 'Родительный',
+        'datv': 'Дательный',
+        'accs': 'Винительный',
+        'ablt': 'Творительный',
+        'loct': 'Предложный',
+        'voct': 'Звательный',
+        'gen1': 'Первый родительный',
+        'gen2': 'Второй родительный',
+        'acc2': 'Второй винительный',
+        'loc1': 'Первый предложный',
+        'loc2': 'Второй предложный',
+        
+        # Род
+        'masc': 'Мужской',
+        'femn': 'Женский',
+        'neut': 'Средний',
+        'ms-f': 'Общий',
+        
+        # Число
+        'sing': 'Единственное',
+        'plur': 'Множественное',
+        
+        # Время
+        'past': 'Прошедшее',
+        'pres': 'Настоящее',
+        'futr': 'Будущее',
+        
+        # Лицо
+        '1per': 'Первое лицо',
+        '2per': 'Второе лицо',
+        '3per': 'Третье лицо',
+        
+        # Наклонение
+        'indc': 'Изъявительное',
+        'impr': 'Повелительное',
+        
+        # Залог
+        'actv': 'Действительный',
+        'pssv': 'Страдательный',
+        
+        # Переходность
+        'tran': 'Переходный',
+        'intr': 'Непереходный',
+        
+        # Одушевленность
+        'anim': 'Одушевлённое',
+        'inan': 'Неодушевлённое',
+        
+        # Прочие
+        'Abbr': 'Аббревиатура',
+        'Name': 'Имя',
+        'Surn': 'Фамилия',
+        'Patr': 'Отчество',
+        'Geox': 'Топоним',
+        'Orgn': 'Организация',
+        'Trad': 'Торговая марка',
+        'perf': 'Совершенный вид',
+        'impf': 'Несовершенный вид',
+        'excl': 'Восклицательное',
+        'ipft': 'Несовершенного вида (причастие)',
+        'pf': 'Совершенного вида (причастие)',
+        'pos': 'Часть речи'
+    }
+    
+    # Подготовка данных для таблицы
+    rows = []
+    
+    for item in analyzed_text:
+        # Базовые поля
+        row_data = {
+            'Слово': item['word'],
+            'Начальная форма': item['lemma'],
+            'Часть речи': morpho_translation.get(item['pos'], item['pos']),
+            'Слоги': '-'.join(item['syllables']) if 'syllables' in item else ''
+        }
+        
+        # Добавляем морфологические теги с русификацией
+        if 'tags' in item and item['tags']:
+            for tag_key, tag_value in item['tags'].items():
+                # Русское название тега
+                tag_name = tag_key.capitalize()  # По умолчанию просто капитализируем
+                
+                # Русское значение тега
+                tag_translated = morpho_translation.get(tag_value, tag_value)
+                
+                # Специальная обработка для некоторых тегов
+                if tag_key == 'pos':
+                    tag_name = 'Часть речи'
+                elif tag_key == 'gender':
+                    tag_name = 'Род'
+                elif tag_key == 'number':
+                    tag_name = 'Число'
+                elif tag_key == 'case':
+                    tag_name = 'Падеж'
+                elif tag_key == 'tense':
+                    tag_name = 'Время'
+                elif tag_key == 'person':
+                    tag_name = 'Лицо'
+                elif tag_key == 'aspect':
+                    tag_name = 'Вид'
+                elif tag_key == 'mood':
+                    tag_name = 'Наклонение'
+                elif tag_key == 'voice':
+                    tag_name = 'Залог'
+                
+                row_data[tag_name] = tag_translated
+        
+        rows.append(row_data)
+    
+    # Создаем DataFrame и сохраняем в Excel
+    df = pd.DataFrame(rows)
+    
+    # Проверяем наличие директории
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    
+    # Сохраняем в Excel
+    try:
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+        print(f"Excel-файл успешно сохранен: {output_path}")
+    except Exception as e:
+        print(f"Ошибка при сохранении Excel-файла: {e}")
+
+
 def create_summary_report(analyzed_text: List[Dict[str, Any]], 
-                         trie: PrefixTree,
-                         syllable_stats: Dict[str, Any],
-                         output_path: Optional[str] = None) -> str:
+                        trie: PrefixTree,
+                        syllable_stats: Dict[str, Any],
+                        output_path: Optional[str] = None) -> str:
     """
     Создает текстовый отчет с сводной статистикой анализа.
     
