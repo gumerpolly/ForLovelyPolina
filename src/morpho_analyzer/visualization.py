@@ -5,19 +5,30 @@
 - графическое представление префиксного дерева
 - статистика морфологического анализа
 - распределение частей речи
+- упрощенная версия дерева с ограничением до 100 слов
 """
 
 import matplotlib.pyplot as plt
+import matplotlib
 import networkx as nx
-from matplotlib.figure import Figure
-from typing import Dict, List, Any, Tuple, Optional
-import os
 import numpy as np
-from collections import Counter
+from typing import Any, Dict, List, Optional, Tuple, Union, Set
+from matplotlib.figure import Figure
 import pandas as pd
-import json
-from pyvis.network import Network
+import re
+import os
+from copy import deepcopy
+from collections import Counter
+import random
 
+# Conditional import for pyvis in case visualization is not needed
+try:
+    from pyvis.network import Network
+except ImportError:
+    Network = None
+    print("Warning: pyvis is not installed, interactive tree visualization is disabled")
+
+# Импортируем мою реализацию префиксного дерева
 from .trie import PrefixTree, TrieNode
 
 
@@ -266,6 +277,68 @@ def visualize_syllable_statistics(syllable_stats: Dict[str, Any],
         plt.savefig(output_path, bbox_inches='tight', dpi=150)
     
     return fig
+
+
+def _extract_words_from_trie(trie: PrefixTree) -> List[Tuple[List[str], Dict[str, Any]]]:
+    """
+    Извлекает все слова из префиксного дерева.
+    
+    Args:
+        trie: Префиксное дерево
+        
+    Returns:
+        Список кортежей (слоги_слова, данные_слова)
+    """
+    words = []
+    
+    def _traverse(node: TrieNode, syllables: List[str]):
+        if node.is_end_of_word and node.word_data:
+            for data in node.word_data:
+                words.append((syllables[:], data))
+        
+        for syllable, child in node.children.items():
+            syllables.append(syllable)
+            _traverse(child, syllables)
+            syllables.pop()
+    
+    _traverse(trie.root, [])
+    return words
+
+
+def create_simplified_trie(trie: PrefixTree, max_words: int = 100) -> PrefixTree:
+    """
+    Создает упрощенную версию префиксного дерева с ограничением по количеству слов.
+    
+    Args:
+        trie: Исходное префиксное дерево
+        max_words: Максимальное количество слов в упрощенной версии
+        
+    Returns:
+        Упрощенное префиксное дерево
+    """
+    # Создаем новое пустое дерево
+    simplified = PrefixTree()
+    
+    # Извлекаем все слова из исходного дерева
+    words_with_data = _extract_words_from_trie(trie)
+    
+    # Если исходное дерево пустое, возвращаем пустое дерево
+    if not words_with_data:
+        return simplified
+    
+    # Если исходное дерево содержит меньше максимального числа слов,
+    # просто копируем все слова
+    if len(words_with_data) <= max_words:
+        for syllables, data in words_with_data:
+            simplified.insert(syllables, data)
+        return simplified
+    
+    # Иначе выбираем случайное подмножество слов
+    selected_words = random.sample(words_with_data, max_words)
+    for syllables, data in selected_words:
+        simplified.insert(syllables, data)
+    
+    return simplified
 
 
 def visualize_trie_interactive(trie: PrefixTree, max_depth: int = 5,
@@ -603,6 +676,17 @@ def export_to_excel(analyzed_text: List[Dict[str, Any]],
             'Слоги': '-'.join(item['syllables']) if 'syllables' in item else ''
         }
         
+        # Проверяем, есть ли значение омонима на верхнем уровне
+        if 'sense' in item and item['sense']:
+            # Русификация значений sense
+            sense_translations = {
+                'vegetable': 'Овощ',
+                'weapon': 'Оружие',
+                'lock_key': 'Ключ от замка',
+                'spring': 'Родник'
+            }
+            row_data['Значение омонима'] = sense_translations.get(item['sense'], item['sense'])
+        
         # Добавляем морфологические теги с русификацией
         if 'tags' in item and item['tags']:
             for tag_key, tag_value in item['tags'].items():
@@ -627,6 +711,9 @@ def export_to_excel(analyzed_text: List[Dict[str, Any]],
                     tag_name = 'Лицо'
                 elif tag_key == 'aspect':
                     tag_name = 'Вид'
+                elif tag_key == 'sense':
+                    # Пропускаем sense в tags, так как он обрабатывается отдельно на верхнем уровне
+                    continue
                 elif tag_key == 'mood':
                     tag_name = 'Наклонение'
                 elif tag_key == 'voice':

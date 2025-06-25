@@ -2,20 +2,22 @@
 Модуль для обработки и подготовки текста.
 
 Этот модуль предоставляет функции для чтения текста из файла,
-нормализации и токенизации текста.
+нормализации и токенизации текста, включая поддержку PDF-файлов.
 """
 
 import re
+import os
 from typing import List, Optional, Tuple
+import PyPDF2  # Библиотека для работы с PDF-файлами
 
 
 def read_text_file(filename: str, encoding: str = 'utf-8') -> str:
     """
-    Читает текст из файла.
+    Читает текст из файла разных форматов (.txt, .pdf).
     
     Args:
         filename: Путь к файлу
-        encoding: Кодировка файла (по умолчанию utf-8)
+        encoding: Кодировка файла (по умолчанию utf-8, для текстовых файлов)
         
     Returns:
         Содержимое файла в виде строки
@@ -23,14 +25,39 @@ def read_text_file(filename: str, encoding: str = 'utf-8') -> str:
     Raises:
         FileNotFoundError: Если файл не найден
         UnicodeDecodeError: Если файл не может быть декодирован с указанной кодировкой
+        ValueError: Если формат файла не поддерживается
     """
-    try:
-        with open(filename, 'r', encoding=encoding) as f:
-            return f.read()
-    except FileNotFoundError:
+    if not os.path.exists(filename):
         raise FileNotFoundError(f"Файл {filename} не найден")
-    except UnicodeDecodeError:
-        raise UnicodeDecodeError(f"Файл {filename} не может быть декодирован с кодировкой {encoding}")
+        
+    # Определяем тип файла по расширению
+    file_extension = os.path.splitext(filename)[1].lower()
+    
+    # Обработка PDF-файлов
+    if file_extension == '.pdf':
+        try:
+            text = ''
+            with open(filename, 'rb') as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                # Извлекаем текст из каждой страницы PDF
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text() + '\n'
+            return text
+        except Exception as e:
+            raise ValueError(f"Ошибка при чтении PDF-файла {filename}: {str(e)}")
+    
+    # Обработка текстовых файлов
+    elif file_extension == '.txt' or file_extension == '':
+        try:
+            with open(filename, 'r', encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            raise UnicodeDecodeError(f"Файл {filename} не может быть декодирован с кодировкой {encoding}")
+    
+    # Неподдерживаемый формат
+    else:
+        raise ValueError(f"Формат файла {file_extension} не поддерживается. Поддерживаемые форматы: .txt, .pdf")
 
 
 def normalize_text(text: str, lowercase: bool = False) -> str:

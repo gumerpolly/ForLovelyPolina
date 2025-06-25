@@ -5,10 +5,15 @@
 характеристик слов в тексте и снятия омонимии на основе контекста.
 """
 
-# Временная заглушка вместо импорта pymorphy2
-# import pymorphy2
-from typing import Dict, List, Tuple, Optional, Any
+# Импорт патча для совместимости с Python 3.11+
+from . import pymorphy2_patch
+# Импорт pymorphy2
+import pymorphy2
+from typing import Any, Dict, List, Optional, Tuple, Union
+import os
 import re
+import json
+from pathlib import Path
 
 
 class MorphologicalAnalyzer:
@@ -16,22 +21,29 @@ class MorphologicalAnalyzer:
     Класс для выполнения морфологического анализа текста.
     """
     
-    def __init__(self, language: str = 'ru'):
+    def __init__(self, language: str = 'ru', homonyms_file: str = None):
         """
         Инициализирует анализатор.
         
         Args:
             language: Код языка (по умолчанию 'ru' - русский)
+            homonyms_file: Путь к JSON-файлу со словарем омонимов
         """
         self.language = language
-        # Заглушка вместо реального анализатора
-        # self.analyzer = pymorphy2.MorphAnalyzer()
-        self.analyzer = None
+        # Инициализируем морфологический анализатор
+        self.analyzer = pymorphy2.MorphAnalyzer()
+        
+        # Загрузка словаря омонимов из JSON-файла
+        if homonyms_file is None:
+            # Используем путь по умолчанию относительно текущего модуля
+            module_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            homonyms_file = module_dir / 'data' / 'homonyms.json'
+        
+        self.homonyms_dict = self._load_homonyms(homonyms_file)
         
     def analyze_word(self, word: str) -> Dict[str, Any]:
         """
-        Выполняет морфологический анализ слова.
-        Заглушка для тестов.
+        Выполняет морфологический анализ слова с помощью pymorphy2.
         
         Args:
             word: Слово для анализа
@@ -39,188 +51,46 @@ class MorphologicalAnalyzer:
         Returns:
             Словарь с морфологическими характеристиками
         """
-        # Очистка слова от знаков препинания и приведение к нижнему регистру
+        # Очищаем слово от знаков препинания и приводим к нижнему регистру
         clean_word = self._clean_word(word)
         
-        # Если слово пустое после очистки, возвращаем пустой результат
+        # Если слово пустое после очистки, возвращаем заглушку
         if not clean_word:
-            return {}
-        
-        # Заглушка: заранее определенные результаты для конкретных слов
-        predefined_results = {
-            'книга': {
-                'word': 'книга',
-                'lemma': 'книга',
-                'pos': 'NOUN',
-                'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'}
-            },
-            'книги': {
-                'word': 'книги',
-                'lemma': 'книга',
-                'pos': 'NOUN',
-                'tags': {'gender': 'femn', 'number': 'plur', 'case': 'gent'}
-            },
-            'книге': {
-                'word': 'книге',
-                'lemma': 'книга',
-                'pos': 'NOUN',
-                'tags': {'gender': 'femn', 'number': 'sing', 'case': 'datv'}
-            },
-            'читает': {
-                'word': 'читает',
-                'lemma': 'читать',
-                'pos': 'VERB',
-                'tags': {'tense': 'pres', 'person': '3per', 'number': 'sing'}
-            },
-            'читают': {
-                'word': 'читают',
-                'lemma': 'читать',
-                'pos': 'VERB',
-                'tags': {'tense': 'pres', 'person': '3per', 'number': 'plur'}
-            },
-            'читал': {
-                'word': 'читал',
-                'lemma': 'читать',
-                'pos': 'VERB',
-                'tags': {'tense': 'past', 'gender': 'masc', 'number': 'sing'}
-            },
-            'читала': {
-                'word': 'читала',
-                'lemma': 'читать',
-                'pos': 'VERB',
-                'tags': {'tense': 'past', 'gender': 'femn', 'number': 'sing'}
-            },
-            'читали': {
-                'word': 'читали',
-                'lemma': 'читать',
-                'pos': 'VERB',
-                'tags': {'tense': 'past', 'number': 'plur'}
-            },
-            'читать': {
-                'word': 'читать',
-                'lemma': 'читать',
-                'pos': 'INFN',
-                'tags': {'aspect': 'impf'}
-            },
-            'стекло': {
-                'word': 'стекло',
-                'lemma': 'стекло',
-                'pos': 'NOUN',
-                'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'}
-            },
-            'красивый': {
-                'word': 'красивый',
-                'lemma': 'красивый',
-                'pos': 'ADJF',
-                'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'}
-            },
-            'красивая': {
-                'word': 'красивая',
-                'lemma': 'красивый',
-                'pos': 'ADJF',
-                'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'}
-            },
-            'красивое': {
-                'word': 'красивое',
-                'lemma': 'красивый',
-                'pos': 'ADJF',
-                'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'}
-            },
-            'красивые': {
-                'word': 'красивые',
-                'lemma': 'красивый',
-                'pos': 'ADJF',
-                'tags': {'number': 'plur', 'case': 'nomn'}
-            },
-            'быстро': {
-                'word': 'быстро',
-                'lemma': 'быстро',
-                'pos': 'ADVB',
-                'tags': {}
-            },
-            'я': {
-                'word': 'я',
-                'lemma': 'я',
-                'pos': 'NPRO',
-                'tags': {'person': '1per', 'number': 'sing', 'case': 'nomn'}
-            },
-            'мы': {
-                'word': 'мы',
-                'lemma': 'мы',
-                'pos': 'NPRO',
-                'tags': {'person': '1per', 'number': 'plur', 'case': 'nomn'}
-            },
-            'и': {
-                'word': 'и',
-                'lemma': 'и',
-                'pos': 'CONJ',
-                'tags': {}
-            },
-            'в': {
-                'word': 'в',
-                'lemma': 'в',
-                'pos': 'PREP',
+            return {
+                'word': word,
+                'lemma': word,
+                'pos': 'PUNCT',
                 'tags': {}
             }
-        }
         
-        # Если есть заготовленный результат, возвращаем его
-        if clean_word in predefined_results:
-            return predefined_results[clean_word]
+        # Получаем морфологический разбор с помощью pymorphy2
+        parsed = self.analyzer.parse(clean_word)
         
-        # Иначе генерируем псевдослучайный результат на основе первой буквы слова
-        first_char = clean_word[0] if clean_word else 'а'
-        char_code = ord(first_char) % 10
+        # Если есть результаты анализа, берем первый (наиболее вероятный)
+        if parsed:
+            parse = parsed[0]
+            
+            # Извлекаем морфологические теги
+            tags = self._extract_tags(parse.tag)
+            
+            # Формируем результат без сохранения объектов pymorphy2
+            result = {
+                'word': word,
+                'lemma': parse.normal_form,
+                'pos': parse.tag.POS or 'UNKNOWN',
+                'tags': tags
+                # Не сохраняем все варианты разбора, чтобы избежать проблем сериализации
+            }
+            
+            return result
         
-        # Список возможных частей речи
-        pos_variants = ['NOUN', 'VERB', 'ADJF', 'ADVB', 'NPRO', 'CONJ', 'PREP']
-        # Список возможных родов
-        genders = ['masc', 'femn', 'neut']
-        # Список возможных чисел
-        numbers = ['sing', 'plur']
-        # Список возможных падежей
-        cases = ['nomn', 'gent', 'datv', 'accs', 'ablt', 'loct']
-        
-        # Выбираем часть речи на основе первой буквы
-        pos = pos_variants[char_code % len(pos_variants)]
-        
-        # Готовим базовый результат
-        result = {
+        # Если анализ не удался, возвращаем заглушку
+        return {
             'word': word,
             'lemma': clean_word,
-            'pos': pos,
+            'pos': 'UNKNOWN',
             'tags': {}
         }
-        
-        # Заполняем теги в зависимости от части речи
-        if pos == 'NOUN':
-            result['tags'] = {
-                'gender': genders[char_code % len(genders)],
-                'number': numbers[char_code % 2],
-                'case': cases[char_code % len(cases)]
-            }
-        elif pos == 'ADJF':
-            result['tags'] = {
-                'gender': genders[char_code % len(genders)],
-                'number': numbers[char_code % 2],
-                'case': cases[char_code % len(cases)]
-            }
-        elif pos == 'VERB':
-            # Для глаголов выбираем между прошедшим и настоящим временем
-            if char_code % 2 == 0:
-                result['tags'] = {
-                    'tense': 'pres',
-                    'person': '3per',
-                    'number': numbers[char_code % 2]
-                }
-            else:
-                result['tags'] = {
-                    'tense': 'past',
-                    'gender': genders[char_code % len(genders)],
-                    'number': numbers[char_code % 2]
-                }
-        
-        return result
     
     def _clean_word(self, word: str) -> str:
         """
@@ -235,6 +105,24 @@ class MorphologicalAnalyzer:
         # Удаление знаков препинания и приведение к нижнему регистру
         return re.sub(r'[^а-яё]', '', word.lower())
     
+    def _load_homonyms(self, homonyms_file: Union[str, Path]) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Загружает словарь омонимов из JSON-файла.
+        
+        Args:
+            homonyms_file: Путь к JSON-файлу со словарем омонимов
+            
+        Returns:
+            Словарь омонимов
+        """
+        try:
+            with open(homonyms_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Ошибка загрузки словаря омонимов: {e}")
+            # Возвращаем пустой словарь в случае ошибки
+            return {}
+    
     def _extract_tags(self, tag: Any) -> Dict[str, str]:
         """
         Извлекает морфологические теги из тега pymorphy2.
@@ -245,8 +133,38 @@ class MorphologicalAnalyzer:
         Returns:
             Словарь с морфологическими характеристиками
         """
-        # Заглушка: возвращаем пустой словарь
-        return {}
+        # Извлекаем все доступные грамматические категории
+        tags = {}
+        
+        # Получаем значения основных морфологических категорий
+        if hasattr(tag, 'gender'):
+            tags['gender'] = tag.gender
+        
+        if hasattr(tag, 'number'):
+            tags['number'] = tag.number
+            
+        if hasattr(tag, 'case'):
+            tags['case'] = tag.case
+            
+        if hasattr(tag, 'tense'):
+            tags['tense'] = tag.tense
+            
+        if hasattr(tag, 'person'):
+            tags['person'] = tag.person
+            
+        if hasattr(tag, 'aspect'):
+            tags['aspect'] = tag.aspect
+            
+        if hasattr(tag, 'mood'):
+            tags['mood'] = tag.mood
+            
+        if hasattr(tag, 'voice'):
+            tags['voice'] = tag.voice
+            
+        if hasattr(tag, 'animacy'):
+            tags['animacy'] = tag.animacy
+            
+        return tags
     
     def extract_morphological_tags(self, word: str, pos: str, tags: Dict[str, str]) -> Dict[str, str]:
         """
@@ -265,7 +183,7 @@ class MorphologicalAnalyzer:
         result.update(tags)
         return result
     
-    def analyze_token_with_homonym_resolution(self, word: str, prev_words: List[str], next_words: List[str]) -> Dict[str, Any]:
+    def analyze_token_with_homonym_resolution(self, word: str, prev_words: List[str] = None, next_words: List[str] = None) -> Dict[str, Any]:
         """
         Анализирует слово с учетом контекста для разрешения омонимии.
         
@@ -277,25 +195,15 @@ class MorphologicalAnalyzer:
         Returns:
             Словарь с морфологическими характеристиками с учетом контекста
         """
-        # Особая обработка для слова "стекло"
-        if word.lower() == 'стекло':
-            if any(w in next_words for w in ['разбилось']):
-                return {
-                    'word': 'стекло',
-                    'lemma': 'стекло',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'}
-                }
-            elif any(w in prev_words for w in ['медленно']) or any(w in next_words for w in ['по', 'вниз', 'стене']):
-                return {
-                    'word': 'стекло',
-                    'lemma': 'стечь',
-                    'pos': 'VERB',
-                    'tags': {'gender': 'neut', 'number': 'sing', 'tense': 'past'}
-                }
-            
-        # По умолчанию возвращаем стандартный результат анализа
-        return self.analyze_word(word)
+        # Создаем общий контекст из предыдущих и следующих слов
+        context = []
+        if prev_words:
+            context.extend(prev_words)
+        if next_words:
+            context.extend(next_words)
+        
+        # Используем общий механизм снятия омонимии
+        return self.resolve_homonymy(word, context)
     
     def analyze_token(self, token: str) -> Dict[str, Any]:
         """
@@ -332,185 +240,66 @@ class MorphologicalAnalyzer:
         Returns:
             Словарь с морфологическими характеристиками наиболее вероятного варианта
         """
-        word_lower = word.lower()
-        
-        # Словарь омонимов с их возможными разборами и контекстными маркерами
-        homonyms = {
-            'стекло': [
-                {
-                    'lemma': 'стекло',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'neut', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['разбилось', 'окно', 'прозрачное', 'матовое', 'треснуло']
-                },
-                {
-                    'lemma': 'стечь',
-                    'pos': 'VERB',
-                    'tags': {'gender': 'neut', 'number': 'sing', 'tense': 'past'},
-                    'markers': ['вниз', 'по', 'медленно', 'стене', 'капля']
-                }
-            ],
-            'печь': [
-                {
-                    'lemma': 'печь',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['горячая', 'русская', 'топить', 'дрова', 'огонь', 'духовка']
-                },
-                {
-                    'lemma': 'печь',
-                    'pos': 'VERB',
-                    'tags': {'tense': 'pres', 'person': '3per'},
-                    'markers': ['пироги', 'хлеб', 'булочки', 'торт', 'кулинар']
-                }
-            ],
-            'три': [
-                {
-                    'lemma': 'три',
-                    'pos': 'NUMR',
-                    'tags': {'case': 'nomn'},
-                    'markers': ['четыре', 'два', 'пять', 'число', 'количество']
-                },
-                {
-                    'lemma': 'тереть',
-                    'pos': 'VERB',
-                    'tags': {'mood': 'impr', 'number': 'sing', 'person': '2per'},
-                    'markers': ['морковь', 'сыр', 'на', 'тёрке']
-                }
-            ],
-            'ключи': [
-                {
-                    'lemma': 'ключ',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'plur', 'case': 'nomn'},
-                    'markers': ['дверь', 'замок', 'открыть', 'связка', 'карман']
-                },
-                {
-                    'lemma': 'ключ',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'plur', 'case': 'nomn'},
-                    'markers': ['родник', 'вода', 'бить', 'горный', 'чистый', 'лес']
-                }
-            ],
-            'лук': [
-                {
-                    'lemma': 'лук',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['овощ', 'резать', 'порей', 'грядка', 'слезы', 'чеснок']
-                },
-                {
-                    'lemma': 'лук',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['стрела', 'стрелять', 'тетива', 'попасть', 'мишень', 'охота']
-                }
-            ],
-            'ласка': [
-                {
-                    'lemma': 'ласка',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['нежность', 'любовь', 'доброта', 'приятно', 'забота']
-                },
-                {
-                    'lemma': 'ласка',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['животное', 'хищник', 'грызун', 'мелкий', 'пушистый']
-                }
-            ],
-            'стали': [
-                {
-                    'lemma': 'сталь',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'gent'},
-                    'markers': ['металл', 'завод', 'производство', 'прочный', 'сплав']
-                },
-                {
-                    'lemma': 'стать',
-                    'pos': 'VERB',
-                    'tags': {'tense': 'past', 'number': 'plur'},
-                    'markers': ['они', 'мы', 'вы', 'начали', 'решили', 'больше', 'лучше']
-                }
-            ],
-            'мир': [
-                {
-                    'lemma': 'мир',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['планета', 'земля', 'вселенная', 'вокруг', 'глобус']
-                },
-                {
-                    'lemma': 'мир',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'masc', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['война', 'согласие', 'договор', 'спокойствие', 'дружба']
-                }
-            ],
-            'вести': [
-                {
-                    'lemma': 'весть',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'plur', 'case': 'nomn'},
-                    'markers': ['новости', 'плохие', 'хорошие', 'получить', 'услышать']
-                },
-                {
-                    'lemma': 'вести',
-                    'pos': 'VERB',
-                    'tags': {'tense': 'pres', 'number': 'sing', 'person': '3per'},
-                    'markers': ['дорога', 'за', 'собой', 'процесс', 'переговоры', 'машину']
-                }
-            ],
-            'коса': [
-                {
-                    'lemma': 'коса',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['волосы', 'плести', 'длинная', 'девушка', 'прическа']
-                },
-                {
-                    'lemma': 'коса',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['трава', 'сено', 'косить', 'луг', 'поле', 'инструмент']
-                },
-                {
-                    'lemma': 'коса',
-                    'pos': 'NOUN',
-                    'tags': {'gender': 'femn', 'number': 'sing', 'case': 'nomn'},
-                    'markers': ['берег', 'море', 'песок', 'узкая', 'полуостров']
-                }
-            ]
-        }
-        
-        # Если слово есть в нашем словаре омонимов
-        if word_lower in homonyms and context:
-            context_lower = [w.lower() for w in context]
+        # Очищаем слово от знаков препинания и приводим к нижнему регистру
+        clean_word = self._clean_word(word)
+        # Проверяем наличие слова в словаре омонимов
+        if clean_word in self.homonyms_dict:
+            parses = self.homonyms_dict[clean_word]
             
-            # Для каждого возможного разбора проверяем совпадение с контекстом
-            for parse in homonyms[word_lower]:
-                # Проверяем наличие маркеров в контексте
-                for marker in parse['markers']:
-                    if marker in context_lower:
-                        # Нашли соответствующий контекст, возвращаем этот разбор
-                        return {
-                            'word': word,
-                            'lemma': parse['lemma'],
-                            'pos': parse['pos'],
-                            'tags': parse['tags'],
-                            'all_parses': []  # Можно добавить все возможные разборы при необходимости
-                        }
+            # Детальный анализ контекста
+            if context and len(context) > 0:
+                context_lower = [self._clean_word(w) for w in context]
+                print(f"DEBUG: Анализируем слово '{clean_word}' в контексте {context_lower}")
+                
+                # Вычисляем релевантность каждого варианта разбора
+                match_scores = []
+                
+                for i, parse in enumerate(parses):
+                    score = 0
+                    markers = parse.get('markers', [])
+                    # Подсчитываем количество совпадающих маркеров
+                    matching_markers = [marker for marker in markers if marker in context_lower]
+                    score = len(matching_markers)
+                    
+                    sense = parse['tags'].get('sense', '')
+                    match_scores.append((i, score, matching_markers, sense))
+                    print(f"DEBUG: Вариант {i}: значение='{sense}', совпадений={score}, маркеры={matching_markers}")
+                
+                # Выбираем вариант с наибольшим количеством совпадений
+                match_scores.sort(key=lambda x: x[1], reverse=True)
+                
+                # Если есть хотя бы одно совпадение, используем этот вариант
+                if match_scores and match_scores[0][1] > 0:
+                    best_match = match_scores[0]
+                    best_parse = parses[best_match[0]]
+                    print(f"DEBUG: Выбран вариант {best_match[0]} с {best_match[1]} совпадениями")
+                    
+                    # Получаем значение омонима из тегов
+                    sense = best_parse['tags'].get('sense', '')
+                    
+                    return {
+                        'word': word,
+                        'lemma': best_parse['lemma'],
+                        'pos': best_parse['pos'],
+                        'tags': best_parse['tags'].copy(),
+                        'sense': sense,  # Добавляем значение омонима на верхний уровень
+                        'all_parses': []
+                    }
             
-            # Если совпадений нет, берем первый вариант (наиболее частотный)
-            default_parse = homonyms[word_lower][0]
-            return {
-                'word': word,
-                'lemma': default_parse['lemma'],
-                'pos': default_parse['pos'],
-                'tags': default_parse['tags'],
-                'all_parses': []
-            }
+            # Если контекст не помог или его нет, вернем первый (наиболее вероятный) разбор
+            if parses:
+                default_parse = parses[0]
+                print(f"DEBUG: Используем вариант по умолчанию для '{clean_word}'")
+                # Получаем значение омонима из тегов
+                sense = default_parse['tags'].get('sense', '')
+                return {
+                    'word': word,
+                    'lemma': default_parse['lemma'],
+                    'pos': default_parse['pos'],
+                    'tags': default_parse['tags'].copy(),
+                    'sense': sense,  # Добавляем значение омонима на верхний уровень
+                    'all_parses': []
+                }
         
         # По умолчанию просто анализируем слово без учета контекста
         return self.analyze_word(word)

@@ -23,7 +23,8 @@ from morpho_analyzer.trie import PrefixTree
 from morpho_analyzer.visualization import (visualize_trie, visualize_parts_of_speech,
                                          visualize_syllable_statistics,
                                          visualize_trie_statistics, create_summary_report,
-                                         visualize_trie_interactive, export_to_excel)
+                                         visualize_trie_interactive, export_to_excel,
+                                         create_simplified_trie)
 
 
 def parse_arguments():
@@ -49,6 +50,12 @@ def parse_arguments():
     
     parser.add_argument('--trie-depth', '-d', type=int, default=5,
                       help='Максимальная глубина для визуализации префиксного дерева')
+    
+    parser.add_argument('--simplified-visualization', '-s', action='store_true',
+                      help='Создавать упрощенную визуализацию дерева (100 слов) в дополнение к полной')
+    
+    parser.add_argument('--simplified-max-words', type=int, default=100,
+                      help='Максимальное количество слов в упрощенной визуализации (по умолчанию 100)')
     
     return parser.parse_args()
 
@@ -152,7 +159,18 @@ def main():
     trie_html_path = os.path.join(args.output_dir, "trie_interactive.html")
     visualize_trie_interactive(trie, max_depth=args.trie_depth,
                              output_path=trie_html_path,
-                             title="Интерактивное префиксное дерево слогов")
+                             title="Интерактивное префиксное дерево слогов (полное)")
+    
+    # Создаем упрощенную версию дерева (хранит не более 100 слов)
+    # Делаем это если указан флаг --simplified-visualization
+    # Или автоматически при обработке PDF-файла
+    file_extension = os.path.splitext(args.input)[1].lower()
+    if args.simplified_visualization or file_extension == '.pdf':
+        simplified_trie = create_simplified_trie(trie, max_words=args.simplified_max_words)
+        simplified_html_path = os.path.join(args.output_dir, "trie_interactive_simplified.html")
+        visualize_trie_interactive(simplified_trie, max_depth=args.trie_depth,
+                               output_path=simplified_html_path,
+                               title=f"Интерактивное префиксное дерево слогов (упрощенное, {args.simplified_max_words} слов)")
     
     # Визуализация статистики префиксного дерева
     trie_stats_image_path = os.path.join(args.output_dir, "trie_statistics.png")
@@ -181,9 +199,25 @@ def main():
         "trie": trie.serialize()
     }
     
-    # Сохранение в JSON
+    # Создаем класс пользовательского кодировщика JSON для объектов pymorphy2
+    class MorphoJSONEncoder(json.JSONEncoder):
+        def default(self, obj):
+            # Обрабатываем объекты pymorphy2.analyzer.Parse
+            if hasattr(obj, 'tag') and hasattr(obj, 'normal_form'):
+                return {
+                    'normal_form': obj.normal_form,
+                    'pos': str(obj.tag.POS),
+                    'tag': str(obj.tag)
+                }
+            # Обрабатываем объекты pymorphy2.tagset.OpencorporaTag
+            if hasattr(obj, 'POS') and hasattr(obj, 'grammemes'):
+                return str(obj)
+            # Для всех остальных типов используем стандартный механизм
+            return json.JSONEncoder.default(self, obj)
+    
+    # Сохранение в JSON с использованием кодировщика
     with open(results_json_path, 'w', encoding='utf-8') as f:
-        json.dump(output_data, f, ensure_ascii=False, indent=2)
+        json.dump(output_data, f, ensure_ascii=False, indent=2, cls=MorphoJSONEncoder)
     
     # Вывод информации о завершении
     elapsed_time = time.time() - start_time
