@@ -158,7 +158,7 @@ python src/main.py --input data/input/текст.txt --output-dir data/output/р
 
 ## 👨‍💻 Авторы
 
-- [Гумеров Сергей](https://github.com/ваш-username)
+- [Гумерова Полина]
 
 ## 📧 Контакты
 
